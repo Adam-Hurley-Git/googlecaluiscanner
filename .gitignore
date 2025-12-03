@@ -1,0 +1,43 @@
+# Extension packaging
+*.crx
+*.pem
+*.zip
+
+# Generated icons (users generate these locally)
+icons/*.png
+
+# Node modules (if added later)
+node_modules/
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+test-results/
+coverage/
+
+# Temporary files
+*.tmp
+temp/
+
+# OAuth credentials (never commit these)
+credentials.json
+client_secret*.json
+
+# User data
+*.json.bak
+scan-results/

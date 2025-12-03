@@ -1,0 +1,215 @@
+/**
+ * Inspector UI Styles
+ */
+
+#cal-inspector-panel {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  width: 350px;
+  background: #ffffff;
+  border: 2px solid #4285f4;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+#cal-inspector-panel.minimized .cal-inspector-body {
+  display: none;
+}
+
+.cal-inspector-header {
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px 6px 0 0;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.cal-inspector-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#cal-inspector-minimize {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+#cal-inspector-minimize:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.cal-inspector-body {
+  padding: 16px;
+}
+
+.cal-inspector-status {
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.status-loading {
+  color: #fb8c00;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-success {
+  color: #34a853;
+}
+
+.status-error {
+  color: #ea4335;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.cal-inspector-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cal-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+  background: #f1f3f4;
+  color: #333;
+}
+
+.cal-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cal-btn-primary {
+  background: #4285f4;
+  color: white;
+}
+
+.cal-btn-primary:hover:not(:disabled) {
+  background: #3367d6;
+}
+
+.cal-btn-secondary {
+  background: #34a853;
+  color: white;
+}
+
+.cal-btn-secondary:hover:not(:disabled) {
+  background: #2d8e47;
+}
+
+.cal-inspector-stats {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.cal-inspector-stats p {
+  margin: 6px 0;
+}
+
+.cal-inspector-stats strong {
+  color: #4285f4;
+}
+
+.cal-inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cal-inspector-help {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.cal-inspector-help details {
+  cursor: pointer;
+}
+
+.cal-inspector-help summary {
+  font-weight: 500;
+  color: #5f6368;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.cal-inspector-help ul {
+  margin: 8px 0;
+  padding-left: 24px;
+  font-size: 12px;
+  color: #5f6368;
+  line-height: 1.6;
+}
+
+.cal-inspector-help li {
+  margin: 4px 0;
+}
+
+/* Highlight overlays */
+.cal-inspector-highlight {
+  transition: opacity 0.3s;
+  animation: highlightPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #cal-inspector-panel {
+    width: 90%;
+    right: 5%;
+    left: 5%;
+  }
+}
+
+/* Console styling hints */
+.cal-console-table {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+}

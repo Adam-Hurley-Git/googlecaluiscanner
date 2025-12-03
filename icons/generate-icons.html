@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    canvas {
+      margin: 10px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Calendar Inspector Icon Generator</h1>
+  <p>Click the buttons below to download the icon files:</p>
+
+  <div>
+    <button onclick="generateIcon(16)">Download 16x16</button>
+    <button onclick="generateIcon(48)">Download 48x48</button>
+    <button onclick="generateIcon(128)">Download 128x128</button>
+  </div>
+
+  <div id="canvases"></div>
+
+  <script>
+    function generateIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#4285f4');
+      gradient.addColorStop(1, '#34a853');
+
+      // Draw rounded rectangle background
+      const radius = size * 0.2;
+      ctx.fillStyle = gradient;
+      roundRect(ctx, 0, 0, size, size, radius, true, false);
+
+      // Draw calendar icon
+      const margin = size * 0.15;
+      const calWidth = size * 0.7;
+      const calHeight = size * 0.65;
+      const calX = margin;
+      const calY = margin + size * 0.1;
+
+      // Calendar body
+      ctx.fillStyle = 'white';
+      roundRect(ctx, calX, calY, calWidth, calHeight, size * 0.08, true, false);
+
+      // Calendar header (red bar)
+      ctx.fillStyle = '#ea4335';
+      roundRect(ctx, calX, calY, calWidth, calHeight * 0.25, size * 0.08, true, false);
+      ctx.fillRect(calX, calY + calHeight * 0.2, calWidth, calHeight * 0.1);
+
+      // Calendar grid
+      ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+      ctx.lineWidth = Math.max(1, size * 0.015);
+
+      const gridStartY = calY + calHeight * 0.35;
+      const gridHeight = calHeight * 0.6;
+      const cellWidth = calWidth / 4;
+      const cellHeight = gridHeight / 3;
+
+      // Vertical lines
+      for (let i = 1; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(calX + cellWidth * i, gridStartY);
+        ctx.lineTo(calX + cellWidth * i, calY + calHeight - margin * 0.3);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let i = 1; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(calX + margin * 0.3, gridStartY + cellHeight * i);
+        ctx.lineTo(calX + calWidth - margin * 0.3, gridStartY + cellHeight * i);
+        ctx.stroke();
+      }
+
+      // Magnifying glass (inspector icon)
+      if (size >= 48) {
+        const mgX = size * 0.7;
+        const mgY = size * 0.7;
+        const mgRadius = size * 0.15;
+
+        // Outer circle
+        ctx.fillStyle = '#4285f4';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = size * 0.03;
+        ctx.beginPath();
+        ctx.arc(mgX, mgY, mgRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner circle (lens)
+        ctx.fillStyle = 'transparent';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = size * 0.025;
+        ctx.beginPath();
+        ctx.arc(mgX, mgY, mgRadius * 0.55, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Handle
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = size * 0.035;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        const handleLen = size * 0.12;
+        const angle = Math.PI / 4;
+        ctx.moveTo(mgX + mgRadius * 0.7, mgY + mgRadius * 0.7);
+        ctx.lineTo(mgX + mgRadius * 0.7 + handleLen * Math.cos(angle),
+                   mgY + mgRadius * 0.7 + handleLen * Math.sin(angle));
+        ctx.stroke();
+      }
+
+      // Download
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon${size}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      // Also display
+      document.getElementById('canvases').appendChild(canvas);
+    }
+
+    function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+  </script>
+</body>
+</html>

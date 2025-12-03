@@ -68,6 +68,9 @@ const InspectorUI = {
           <button id="cal-inspector-export-api" class="cal-btn" disabled>
             💾 Export API JSON
           </button>
+          <button id="cal-inspector-export-analysis" class="cal-btn cal-btn-primary" disabled>
+            📊 Export Complete Analysis
+          </button>
           <button id="cal-inspector-highlight" class="cal-btn">
             ✨ Toggle Highlights
           </button>
@@ -121,6 +124,12 @@ const InspectorUI = {
       }
     });
 
+    document.getElementById('cal-inspector-export-analysis')?.addEventListener('click', () => {
+      if (this.currentScanResult && window.CAL_API_DATA) {
+        this.exportCompleteAnalysis();
+      }
+    });
+
     // Highlight toggle
     document.getElementById('cal-inspector-highlight')?.addEventListener('click', () => {
       this.toggleHighlights();
@@ -165,6 +174,11 @@ const InspectorUI = {
 
       // Enable export button
       document.getElementById('cal-inspector-export-scan').disabled = false;
+
+      // Enable analysis button if we have both scan and API data
+      if (window.CAL_API_DATA) {
+        document.getElementById('cal-inspector-export-analysis').disabled = false;
+      }
 
       // Store globally for console access
       window.CAL_SCAN_DATA = this.currentScanResult;
@@ -260,6 +274,11 @@ const InspectorUI = {
 
       // Enable export button
       document.getElementById('cal-inspector-export-api').disabled = false;
+
+      // Enable analysis button if we have both scan and API data
+      if (this.currentScanResult) {
+        document.getElementById('cal-inspector-export-analysis').disabled = false;
+      }
     });
   },
 
@@ -278,6 +297,397 @@ const InspectorUI = {
 
     URL.revokeObjectURL(url);
     console.log('📥 API data exported');
+  },
+
+  /**
+   * Export complete analysis report
+   */
+  exportCompleteAnalysis() {
+    console.log('📊 Generating complete analysis report...');
+
+    const scanData = this.currentScanResult;
+    const apiData = window.CAL_API_DATA;
+
+    if (!scanData || !apiData) {
+      alert('Please run both DOM scan and API fetch first!');
+      return;
+    }
+
+    // Perform comprehensive analysis
+    const analysis = this.analyzeMapping(scanData, apiData);
+
+    // Generate the report
+    const report = {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        url: window.location.href,
+        totalCards: scanData.cards.length,
+        totalEvents: apiData.events.length,
+        totalTasks: apiData.tasks.length
+      },
+
+      summary: analysis.summary,
+
+      mappingGuide: analysis.mappingGuide,
+
+      cardAnalysis: analysis.cardAnalysis,
+
+      implementationGuide: analysis.implementationGuide,
+
+      rawData: {
+        scanData: scanData,
+        apiData: apiData
+      }
+    };
+
+    // Export as JSON
+    const dataStr = JSON.stringify(report, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `calendar-complete-analysis-${Date.now()}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    // Also log the summary to console
+    console.log('📊 Analysis Summary:', analysis.summary);
+    console.log('🗺️ Mapping Guide:', analysis.mappingGuide);
+    console.log('📥 Complete report exported');
+  },
+
+  /**
+   * Analyze mapping between scan and API data
+   */
+  analyzeMapping(scanData, apiData) {
+    const cardAnalysis = [];
+    const eventPatterns = new Set();
+    const taskPatterns = new Set();
+    let mappedToEvents = 0;
+    let mappedToTasks = 0;
+    let unmapped = 0;
+
+    // Analyze each card
+    scanData.cards.forEach((card, index) => {
+      const eventId = card.visualTarget.attributes['data-eventid'] ||
+                     card.parents[0]?.attributes['data-eventid'] ||
+                     card.parents[1]?.attributes['data-eventid'];
+
+      const taskId = card.visualTarget.attributes['data-task-id'] ||
+                    card.parents[0]?.attributes['data-task-id'];
+
+      // Try to match to API data
+      const matchedEvent = apiData.events.find(e => e.id === eventId);
+      const matchedTask = apiData.tasks.find(t => t.id === eventId || t.id === taskId);
+
+      let cardType = 'unknown';
+      let mappingMethod = 'none';
+      let idLocation = 'none';
+
+      if (matchedEvent) {
+        cardType = 'event';
+        mappedToEvents++;
+        mappingMethod = 'data-eventid';
+
+        if (card.visualTarget.attributes['data-eventid']) {
+          idLocation = 'visualTarget';
+        } else if (card.parents[0]?.attributes['data-eventid']) {
+          idLocation = 'parent[0]';
+        } else if (card.parents[1]?.attributes['data-eventid']) {
+          idLocation = 'parent[1]';
+        }
+
+        // Collect common patterns for events
+        card.visualTarget.classList.forEach(cls => eventPatterns.add(cls));
+      } else if (matchedTask) {
+        cardType = 'task';
+        mappedToTasks++;
+        mappingMethod = eventId ? 'data-eventid' : 'data-task-id';
+
+        if (card.visualTarget.attributes['data-eventid'] || card.visualTarget.attributes['data-task-id']) {
+          idLocation = 'visualTarget';
+        } else {
+          idLocation = 'parent[0]';
+        }
+
+        // Collect common patterns for tasks
+        card.visualTarget.classList.forEach(cls => taskPatterns.add(cls));
+      } else {
+        unmapped++;
+      }
+
+      cardAnalysis.push({
+        cardIndex: index,
+        cardType: cardType,
+        mappingMethod: mappingMethod,
+        idLocation: idLocation,
+        eventId: eventId,
+        taskId: taskId,
+        visualTarget: {
+          tagName: card.visualTarget.tagName,
+          classList: card.visualTarget.classList,
+          attributes: card.visualTarget.attributes,
+          textContent: card.visualTarget.textContent?.substring(0, 100)
+        },
+        matchedData: matchedEvent || matchedTask || null
+      });
+    });
+
+    // Generate summary
+    const summary = {
+      totalCards: scanData.cards.length,
+      mappedToEvents: mappedToEvents,
+      mappedToTasks: mappedToTasks,
+      unmapped: unmapped,
+      mappingSuccessRate: `${Math.round((mappedToEvents + mappedToTasks) / scanData.cards.length * 100)}%`
+    };
+
+    // Generate mapping guide
+    const mappingGuide = {
+      primaryMappingKey: 'data-eventid',
+      keyLocation: this.determineMostCommonIdLocation(cardAnalysis),
+      eventClasses: Array.from(eventPatterns),
+      taskClasses: Array.from(taskPatterns),
+      distinguishingClasses: this.findDistinguishingClasses(eventPatterns, taskPatterns),
+      selectorStrategy: this.generateSelectorStrategy(cardAnalysis)
+    };
+
+    // Generate implementation guide
+    const implementationGuide = this.generateImplementationGuide(mappingGuide, cardAnalysis);
+
+    return {
+      summary,
+      mappingGuide,
+      cardAnalysis,
+      implementationGuide
+    };
+  },
+
+  /**
+   * Determine most common ID location
+   */
+  determineMostCommonIdLocation(cardAnalysis) {
+    const locations = {};
+    cardAnalysis.forEach(card => {
+      if (card.idLocation !== 'none') {
+        locations[card.idLocation] = (locations[card.idLocation] || 0) + 1;
+      }
+    });
+
+    let mostCommon = 'unknown';
+    let maxCount = 0;
+    for (const [location, count] of Object.entries(locations)) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = location;
+      }
+    }
+
+    return {
+      mostCommon,
+      distribution: locations
+    };
+  },
+
+  /**
+   * Find classes that distinguish events from tasks
+   */
+  findDistinguishingClasses(eventClasses, taskClasses) {
+    const eventOnly = Array.from(eventClasses).filter(cls => !taskClasses.has(cls));
+    const taskOnly = Array.from(taskClasses).filter(cls => !eventClasses.has(cls));
+    const common = Array.from(eventClasses).filter(cls => taskClasses.has(cls));
+
+    return {
+      eventOnly,
+      taskOnly,
+      common
+    };
+  },
+
+  /**
+   * Generate selector strategy
+   */
+  generateSelectorStrategy(cardAnalysis) {
+    const strategies = [];
+
+    // Strategy 1: Direct data-eventid
+    if (cardAnalysis.some(c => c.idLocation === 'visualTarget')) {
+      strategies.push({
+        name: 'Direct ID Selector',
+        code: `document.querySelector('[data-eventid="${eventId}"]')`,
+        description: 'Use when data-eventid is on the visual target itself'
+      });
+    }
+
+    // Strategy 2: Parent has ID
+    if (cardAnalysis.some(c => c.idLocation.startsWith('parent'))) {
+      strategies.push({
+        name: 'Parent Container Selector',
+        code: `const container = document.querySelector('[data-eventid="${eventId}"]');\nconst visualTarget = container.querySelector('.event-class');`,
+        description: 'Use when data-eventid is on a parent container'
+      });
+    }
+
+    // Strategy 3: Class-based for events
+    const eventClasses = cardAnalysis
+      .filter(c => c.cardType === 'event')
+      .map(c => c.visualTarget.classList[0])
+      .filter((v, i, a) => a.indexOf(v) === i);
+
+    if (eventClasses.length > 0) {
+      strategies.push({
+        name: 'Event Class Selector',
+        code: `document.querySelectorAll('.${eventClasses[0]}')`,
+        description: 'Select all events by common class'
+      });
+    }
+
+    // Strategy 4: Class-based for tasks
+    const taskClasses = cardAnalysis
+      .filter(c => c.cardType === 'task')
+      .map(c => c.visualTarget.classList[0])
+      .filter((v, i, a) => a.indexOf(v) === i);
+
+    if (taskClasses.length > 0) {
+      strategies.push({
+        name: 'Task Class Selector',
+        code: `document.querySelectorAll('.${taskClasses[0]}')`,
+        description: 'Select all tasks by common class'
+      });
+    }
+
+    return strategies;
+  },
+
+  /**
+   * Generate implementation guide
+   */
+  generateImplementationGuide(mappingGuide, cardAnalysis) {
+    const guide = {
+      overview: `This calendar uses '${mappingGuide.primaryMappingKey}' as the primary identifier for both events and tasks. ` +
+                `The ID is typically found on ${mappingGuide.keyLocation.mostCommon}.`,
+
+      coloringFunction: this.generateColoringFunction(mappingGuide, cardAnalysis),
+
+      exampleUsage: this.generateExampleUsage(cardAnalysis),
+
+      distinguishingFeatures: {
+        events: {
+          classes: mappingGuide.distinguishingClasses.eventOnly,
+          attributes: this.getCommonAttributes(cardAnalysis.filter(c => c.cardType === 'event'))
+        },
+        tasks: {
+          classes: mappingGuide.distinguishingClasses.taskOnly,
+          attributes: this.getCommonAttributes(cardAnalysis.filter(c => c.cardType === 'task'))
+        }
+      },
+
+      recommendations: [
+        `Primary mapping key: ${mappingGuide.primaryMappingKey}`,
+        `ID location: ${mappingGuide.keyLocation.mostCommon}`,
+        `Success rate: ${Math.round(cardAnalysis.filter(c => c.cardType !== 'unknown').length / cardAnalysis.length * 100)}%`,
+        `Total mappable cards: ${cardAnalysis.filter(c => c.cardType !== 'unknown').length} / ${cardAnalysis.length}`
+      ]
+    };
+
+    return guide;
+  },
+
+  /**
+   * Generate coloring function code
+   */
+  generateColoringFunction(mappingGuide, cardAnalysis) {
+    const sampleCard = cardAnalysis.find(c => c.cardType === 'event');
+
+    return {
+      javascript: `
+// Function to color a calendar card by event ID
+function colorCalendarCard(eventId, color) {
+  // Find element with data-eventid
+  const element = document.querySelector(\`[data-eventid="\${eventId}"]\`);
+
+  if (element) {
+    // Apply color to the visual target
+    element.style.backgroundColor = color;
+    element.style.borderLeft = \`4px solid \${color}\`;
+    return true;
+  }
+
+  return false;
+}
+
+// Batch color multiple events
+function colorMultipleEvents(eventColorMap) {
+  let successCount = 0;
+
+  for (const [eventId, color] of Object.entries(eventColorMap)) {
+    if (colorCalendarCard(eventId, color)) {
+      successCount++;
+    }
+  }
+
+  console.log(\`Colored \${successCount} events\`);
+  return successCount;
+}
+
+// Example: Color by event type
+async function applyEventColors() {
+  // Fetch events from API
+  const events = await fetchCalendarEvents();
+
+  events.forEach(event => {
+    let color;
+
+    if (event.summary.includes('Meeting')) {
+      color = '#ff6b6b';
+    } else if (event.summary.includes('Work')) {
+      color = '#4ecdc4';
+    } else if (event.colorId === '1') {
+      color = '#a8dadc';
+    } else {
+      color = '#f1faee';
+    }
+
+    colorCalendarCard(event.id, color);
+  });
+}
+      `.trim(),
+
+      usage: 'Call colorCalendarCard(eventId, color) for each event you want to color'
+    };
+  },
+
+  /**
+   * Generate example usage
+   */
+  generateExampleUsage(cardAnalysis) {
+    const sampleEvent = cardAnalysis.find(c => c.cardType === 'event');
+    const sampleTask = cardAnalysis.find(c => c.cardType === 'task');
+
+    return {
+      colorSingleEvent: sampleEvent ? `colorCalendarCard('${sampleEvent.eventId}', '#ff6b6b')` : 'N/A',
+      colorSingleTask: sampleTask ? `colorCalendarCard('${sampleTask.eventId}', '#4ecdc4')` : 'N/A',
+      batchColor: `colorMultipleEvents({ 'event1_id': '#ff6b6b', 'event2_id': '#4ecdc4' })`
+    };
+  },
+
+  /**
+   * Get common attributes
+   */
+  getCommonAttributes(cards) {
+    const attrCounts = {};
+
+    cards.forEach(card => {
+      Object.keys(card.visualTarget.attributes || {}).forEach(attr => {
+        attrCounts[attr] = (attrCounts[attr] || 0) + 1;
+      });
+    });
+
+    // Return attributes present in >50% of cards
+    const threshold = cards.length * 0.5;
+    return Object.keys(attrCounts).filter(attr => attrCounts[attr] > threshold);
   },
 
   /**

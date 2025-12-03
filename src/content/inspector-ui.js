@@ -333,58 +333,179 @@ const InspectorUI = {
       return;
     }
 
+    console.log('Adding visual highlights to cards...');
+
     // Add highlights
     this.currentScanResult.cards.forEach((cardData, index) => {
-      const targetSelector = this.reconstructSelector(cardData.visualTarget);
-      const targetEl = document.evaluate(
-        targetSelector,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null
-      ).singleNodeValue;
+      try {
+        // Try to find the element directly using classes and attributes
+        let targetEl = null;
 
-      if (targetEl) {
-        const overlay = document.createElement('div');
-        overlay.className = 'cal-inspector-highlight';
-        overlay.style.cssText = `
-          position: absolute;
-          border: 2px solid #ff6b6b;
-          background: rgba(255, 107, 107, 0.1);
-          pointer-events: none;
-          z-index: 999999;
-          box-sizing: border-box;
-        `;
+        // Strategy 1: Try by ID if it exists
+        if (cardData.visualTarget.id) {
+          targetEl = document.getElementById(cardData.visualTarget.id);
+        }
 
-        const rect = targetEl.getBoundingClientRect();
-        overlay.style.top = `${rect.top + window.scrollY}px`;
-        overlay.style.left = `${rect.left + window.scrollX}px`;
-        overlay.style.width = `${rect.width}px`;
-        overlay.style.height = `${rect.height}px`;
+        // Strategy 2: Try by data-eventid
+        if (!targetEl) {
+          const eventId = cardData.visualTarget.attributes['data-eventid'] ||
+                         cardData.parents[0]?.attributes['data-eventid'] ||
+                         cardData.parents[1]?.attributes['data-eventid'];
+          if (eventId) {
+            targetEl = document.querySelector(`[data-eventid="${eventId}"]`);
+          }
+        }
 
-        // Add index badge
-        const badge = document.createElement('div');
-        badge.textContent = index;
-        badge.style.cssText = `
-          position: absolute;
-          top: -10px;
-          right: -10px;
-          background: #ff6b6b;
-          color: white;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: bold;
-        `;
-        overlay.appendChild(badge);
+        // Strategy 3: Use bounding box to find element at that position
+        if (!targetEl && cardData.visualTarget.rect) {
+          const rect = cardData.visualTarget.rect;
+          targetEl = document.elementFromPoint(rect.x + 10, rect.y + 10);
+        }
 
-        document.body.appendChild(overlay);
+        if (targetEl) {
+          // Determine if this card has an event ID
+          const hasEventId = !!(
+            cardData.visualTarget.attributes['data-eventid'] ||
+            cardData.parents.some(p => p.attributes && p.attributes['data-eventid'])
+          );
+
+          const hasTaskId = !!(
+            cardData.visualTarget.attributes['data-task-id'] ||
+            cardData.parents.some(p => p.attributes && p.attributes['data-task-id'])
+          );
+
+          // Color code: green if has ID, red if no ID
+          let borderColor, bgColor, badgeColor, label;
+          if (hasEventId) {
+            borderColor = '#4ade80';
+            bgColor = 'rgba(74, 222, 128, 0.15)';
+            badgeColor = '#22c55e';
+            label = 'E';
+          } else if (hasTaskId) {
+            borderColor = '#60a5fa';
+            bgColor = 'rgba(96, 165, 250, 0.15)';
+            badgeColor = '#3b82f6';
+            label = 'T';
+          } else {
+            borderColor = '#ff6b6b';
+            bgColor = 'rgba(255, 107, 107, 0.15)';
+            badgeColor = '#ef4444';
+            label = '?';
+          }
+
+          const overlay = document.createElement('div');
+          overlay.className = 'cal-inspector-highlight';
+          overlay.style.cssText = `
+            position: absolute;
+            border: 3px solid ${borderColor};
+            background: ${bgColor};
+            pointer-events: none;
+            z-index: 999999;
+            box-sizing: border-box;
+            transition: all 0.2s;
+          `;
+
+          const rect = targetEl.getBoundingClientRect();
+          overlay.style.top = `${rect.top + window.scrollY}px`;
+          overlay.style.left = `${rect.left + window.scrollX}px`;
+          overlay.style.width = `${rect.width}px`;
+          overlay.style.height = `${rect.height}px`;
+
+          // Add badge with index and type
+          const badge = document.createElement('div');
+          badge.textContent = `${index}`;
+          badge.style.cssText = `
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            background: ${badgeColor};
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          `;
+          overlay.appendChild(badge);
+
+          // Add type label
+          const typeLabel = document.createElement('div');
+          typeLabel.textContent = label;
+          typeLabel.style.cssText = `
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            background: ${badgeColor};
+            color: white;
+            border-radius: 4px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          `;
+          overlay.appendChild(typeLabel);
+
+          // Add tooltip on hover (visible through pointer-events on tooltip)
+          const tooltip = document.createElement('div');
+          const eventId = cardData.visualTarget.attributes['data-eventid'] ||
+                         cardData.parents[0]?.attributes['data-eventid'] ||
+                         cardData.parents[1]?.attributes['data-eventid'];
+
+          tooltip.innerHTML = `
+            <strong>Card #${index}</strong><br>
+            ${cardData.visualTarget.textContent?.substring(0, 50) || 'No text'}<br>
+            ${eventId ? `ID: ${eventId.substring(0, 20)}...` : 'No ID found'}
+          `;
+          tooltip.style.cssText = `
+            position: absolute;
+            bottom: 105%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: auto;
+            transition: opacity 0.2s;
+            z-index: 1000000;
+            line-height: 1.4;
+          `;
+          overlay.appendChild(tooltip);
+
+          // Show tooltip on hover
+          overlay.addEventListener('mouseenter', () => {
+            tooltip.style.opacity = '1';
+          });
+          overlay.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = '0';
+          });
+          overlay.style.pointerEvents = 'auto';
+          overlay.style.cursor = 'help';
+
+          document.body.appendChild(overlay);
+          console.log(`Highlighted card #${index}:`, hasEventId ? 'HAS EVENT ID' : 'NO EVENT ID');
+        } else {
+          console.warn(`Could not find element for card #${index}`);
+        }
+      } catch (error) {
+        console.error(`Error highlighting card #${index}:`, error);
       }
     });
+
+    console.log('✨ Highlights added! Hover over cards to see details.');
   },
 
   /**

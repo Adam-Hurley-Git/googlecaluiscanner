@@ -36,6 +36,18 @@ const InspectorUI = {
           <span id="cal-inspector-status-text">Idle</span>
         </div>
 
+        <div class="cal-inspector-date-inputs">
+          <label>
+            <strong>📅 Date Range (optional):</strong>
+          </label>
+          <div class="date-input-row">
+            <input type="date" id="cal-inspector-start-date" placeholder="Start Date" />
+            <span>to</span>
+            <input type="date" id="cal-inspector-end-date" placeholder="End Date" />
+          </div>
+          <small>Leave empty for auto-detection</small>
+        </div>
+
         <div class="cal-inspector-controls">
           <button id="cal-inspector-scan" class="cal-btn cal-btn-primary">
             🔍 Scan DOM
@@ -170,16 +182,40 @@ const InspectorUI = {
   fetchAPIData() {
     this.setStatus('Fetching API data...', 'loading');
 
-    if (!this.currentScanResult) {
-      alert('Please run a DOM scan first!');
-      return;
+    // Get manual date inputs
+    const startDateInput = document.getElementById('cal-inspector-start-date');
+    const endDateInput = document.getElementById('cal-inspector-end-date');
+
+    let visibleRange;
+
+    // Use manual dates if provided, otherwise use scan result or allow scan-less API fetch
+    if (startDateInput?.value || endDateInput?.value) {
+      visibleRange = {
+        startDateISO: startDateInput.value || null,
+        endDateISO: endDateInput.value || null,
+        viewType: 'manual',
+        detected: true
+      };
+      console.log('Using manual date range:', visibleRange);
+    } else if (this.currentScanResult) {
+      visibleRange = this.currentScanResult.visibleRange;
+      console.log('Using auto-detected date range:', visibleRange);
+    } else {
+      // Allow API fetch without scan - will use defaults in background script
+      visibleRange = {
+        startDateISO: null,
+        endDateISO: null,
+        viewType: 'default',
+        detected: false
+      };
+      console.log('No dates specified, using API defaults');
     }
 
     // Send message to background script
     chrome.runtime.sendMessage({
       type: 'FETCH_API_DATA',
       payload: {
-        visibleRange: this.currentScanResult.visibleRange
+        visibleRange: visibleRange
       }
     }, (response) => {
       if (chrome.runtime.lastError) {
@@ -266,8 +302,20 @@ const InspectorUI = {
       <p><strong>With data-eventid:</strong> ${withEventId}</p>
       <p><strong>With data-task-id:</strong> ${withTaskId}</p>
       <p><strong>View:</strong> ${scanResult.visibleRange.viewType}</p>
-      <p><strong>Date range:</strong> ${scanResult.visibleRange.startDateISO || 'unknown'} to ${scanResult.visibleRange.endDateISO || 'unknown'}</p>
+      <p><strong>Detected range:</strong> ${scanResult.visibleRange.startDateISO || 'none'} to ${scanResult.visibleRange.endDateISO || 'none'}</p>
     `;
+
+    // Auto-populate date inputs with detected dates (only if empty)
+    const startInput = document.getElementById('cal-inspector-start-date');
+    const endInput = document.getElementById('cal-inspector-end-date');
+
+    if (startInput && !startInput.value && scanResult.visibleRange.startDateISO) {
+      startInput.value = scanResult.visibleRange.startDateISO;
+    }
+
+    if (endInput && !endInput.value && scanResult.visibleRange.endDateISO) {
+      endInput.value = scanResult.visibleRange.endDateISO;
+    }
   },
 
   /**

@@ -212,29 +212,46 @@ const CalendarScanner = {
       // Try to detect from URL parameters
       const urlParams = new URLSearchParams(window.location.search);
       const dates = urlParams.get('dates');
-      if (dates) {
-        const [start, end] = dates.split('/');
-        range.startDateISO = start;
-        range.endDateISO = end;
-        range.detected = true;
+      if (dates && dates !== 'null') {
+        const parts = dates.split('/');
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          // Validate the dates
+          const start = new Date(parts[0]);
+          const end = new Date(parts[1]);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            range.startDateISO = parts[0];
+            range.endDateISO = parts[1];
+            range.detected = true;
+            console.log('Detected dates from URL:', range.startDateISO, 'to', range.endDateISO);
+          }
+        }
       }
 
-      // Try to find date elements in the UI
-      const dateHeaders = document.querySelectorAll('[data-datekey], [data-date]');
-      const foundDates = [];
+      // If not found in URL, try to find date elements in the UI
+      if (!range.detected) {
+        const dateHeaders = document.querySelectorAll('[data-datekey], [data-date], [data-iso-date]');
+        const foundDates = [];
 
-      dateHeaders.forEach(header => {
-        const dateKey = header.getAttribute('data-datekey') || header.getAttribute('data-date');
-        if (dateKey) {
-          foundDates.push(dateKey);
+        dateHeaders.forEach(header => {
+          const dateKey = header.getAttribute('data-datekey') ||
+                         header.getAttribute('data-date') ||
+                         header.getAttribute('data-iso-date');
+          if (dateKey && dateKey !== 'null') {
+            // Validate it's a proper date
+            const testDate = new Date(dateKey);
+            if (!isNaN(testDate.getTime())) {
+              foundDates.push(dateKey);
+            }
+          }
+        });
+
+        if (foundDates.length > 0) {
+          foundDates.sort();
+          range.startDateISO = foundDates[0];
+          range.endDateISO = foundDates[foundDates.length - 1];
+          range.detected = true;
+          console.log('Detected dates from DOM:', range.startDateISO, 'to', range.endDateISO);
         }
-      });
-
-      if (foundDates.length > 0) {
-        foundDates.sort();
-        range.startDateISO = foundDates[0];
-        range.endDateISO = foundDates[foundDates.length - 1];
-        range.detected = true;
       }
 
       // Detect view type

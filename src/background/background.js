@@ -102,35 +102,54 @@ async function fetchCalendarEvents(visibleRange) {
   console.log('📅 Fetching calendar events...', visibleRange);
 
   try {
-    // Build time parameters
+    // Build time parameters - ensure valid dates
     let timeMin, timeMax;
 
-    if (visibleRange.startDateISO) {
-      timeMin = `${visibleRange.startDateISO}T00:00:00Z`;
-    } else {
-      // Default to current date
-      const now = new Date();
-      timeMin = now.toISOString();
+    if (visibleRange?.startDateISO && visibleRange.startDateISO !== 'null') {
+      // Parse and validate the date
+      const startDate = new Date(visibleRange.startDateISO);
+      if (!isNaN(startDate.getTime())) {
+        timeMin = startDate.toISOString();
+      }
     }
 
-    if (visibleRange.endDateISO) {
+    if (visibleRange?.endDateISO && visibleRange.endDateISO !== 'null') {
+      // Parse and validate the date
       const endDate = new Date(visibleRange.endDateISO);
-      endDate.setDate(endDate.getDate() + 1); // Make it exclusive
-      timeMax = endDate.toISOString();
-    } else {
-      // Default to 7 days from now
-      const end = new Date();
-      end.setDate(end.getDate() + 7);
-      timeMax = end.toISOString();
+      if (!isNaN(endDate.getTime())) {
+        endDate.setDate(endDate.getDate() + 1); // Make it exclusive
+        timeMax = endDate.toISOString();
+      }
     }
 
-    const url = `${CALENDAR_API_BASE}/calendars/primary/events?` + new URLSearchParams({
+    // Fallback to sensible defaults if dates not detected
+    if (!timeMin) {
+      const now = new Date();
+      now.setDate(now.getDate() - 7); // Start 7 days ago
+      timeMin = now.toISOString();
+      console.log('Using default timeMin (7 days ago)');
+    }
+
+    if (!timeMax) {
+      const end = new Date();
+      end.setDate(end.getDate() + 30); // End 30 days from now
+      timeMax = end.toISOString();
+      console.log('Using default timeMax (30 days ahead)');
+    }
+
+    console.log('Fetching events:', { timeMin, timeMax });
+
+    const params = new URLSearchParams({
       timeMin,
       timeMax,
       singleEvents: 'true',
       orderBy: 'startTime',
       maxResults: '250'
     });
+
+    const url = `${CALENDAR_API_BASE}/calendars/primary/events?${params.toString()}`;
+
+    console.log('API URL:', url);
 
     const data = await apiRequest(url);
 
